@@ -1,13 +1,16 @@
-export type AccountType = 'LDAP' | 'Локальная';
+export enum AccountTypes {
+    'LDAP' = 'LDAP',
+    'Local' = 'Локальная'
+}
 
 export interface ILabel {
     text: string;
 }
 
 export interface IAccount {
-    id: string;
+    id: number;
     labels: ILabel[];
-    type: AccountType;
+    type: AccountTypes;
     login: string;
     password: string | null;
     isValid?: boolean;

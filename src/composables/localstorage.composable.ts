@@ -17,8 +17,17 @@ export function useLocalStorage<T>() {
         }
     }
 
+    function remove(key: string): void {
+        try {
+            localStorage.removeItem(key);
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
     return {
         get,
-        set
+        set,
+        remove
     }
 }
