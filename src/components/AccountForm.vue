@@ -24,8 +24,7 @@
               v-model="labelInputs[row.id]"
               placeholder="Метки через ;"
               :class="{ 'is-error': errors[row.id]?.label }"
-              @blur="onAccountFieldChange(row, 'labels')"
-          />
+              @blur="onLabelBlur($event, row)" />
         </template>
       </el-table-column>
 
@@ -89,11 +88,11 @@
 <script setup lang="ts">
 import {useAccountStore} from "../store/account/account.store.ts";
 import {computed, onMounted, reactive, ref, toRaw, watch} from "vue";
-import { Icon } from "@iconify/vue";
-import {AccountTypes, type IAccount} from "../store/account/account.types.ts";
+import {Icon} from "@iconify/vue";
+import {AccountTypes, type IAccount, type ILabel} from "../store/account/account.types.ts";
 import cloneDeep from 'lodash.clonedeep';
 import {useLocalStorage} from "../composables/localstorage.composable.ts";
-import { ElNotification } from 'element-plus'
+import {ElNotification} from 'element-plus'
 
 type ErrorsType = {
   login?: string;
@@ -115,6 +114,10 @@ watch(
     () => accountsStore.value.accounts,
     (newAccounts) => {
       localAccounts.value = cloneDeep(toRaw(newAccounts));
+
+      for (const acc of newAccounts) {
+        labelInputs[acc.id] = acc.labels?.map(l => l.text).join('; ') || '';
+      }
     },
     { immediate: true, deep: true }
 );
@@ -122,6 +125,57 @@ watch(
 const labelInputs = reactive<Record<string, string>>({});
 
 const errors = reactive<Record<string, ErrorsType>>({});
+
+const onAccountFieldChange = (account: IAccount, key: keyof IAccount) => {
+  if (!hasFieldChanged(account, key)) return;
+
+  const labelInput = labelInputs[account.id] || '';
+  validateAccount(account, labelInput);
+
+  if (isAccountValid(account.id)) {
+    saveAccount(account);
+  }
+}
+
+const onAccountRemove = (accountId: number) => {
+  accountsStore.value.removeAccount(accountId);
+
+  useLocalStorage<IAccount[]>().set('accounts', accountsStore.value.accounts);
+
+  ElNotification({
+    title: 'Запись успешно стерта!',
+    message: `Запись №${accountId} успешно стерта!`,
+    position: 'bottom-right',
+    type: 'success'
+  })
+}
+
+const saveAccount = (account: IAccount) => {
+  accountsStore.value.updateAccount({ ...account });
+  useLocalStorage().set('accounts', accountsStore.value.accounts);
+
+  ElNotification({
+    title: 'Запись успешно обновлена!',
+    message: `Запись №${account.id} успешно обновлена!`,
+    position: 'bottom-right',
+    type: 'success'
+  })
+}
+
+const onLabelBlur = (event: Event, account: IAccount) => {
+  const input = event.target as HTMLInputElement;
+  const value = input.value.trim();
+
+  account.labels = parseLabelToString(value);
+  onAccountFieldChange(account, 'labels');
+};
+
+const hasFieldChanged = (localAccount: IAccount, key: keyof IAccount): boolean => {
+  const storeAccount = accountsStore.value.accounts.find(a => a.id === localAccount.id);
+  if (!storeAccount) return true;
+
+  return localAccount[key] !== storeAccount[key];
+}
 
 const validateAccount = (account: IAccount, labelInput: string): void => {
   const accErrors = errors[account.id] || {};
@@ -160,47 +214,12 @@ const isAccountValid = (accountId: number): boolean => {
   return !accErrors || Object.keys(accErrors).length === 0;
 }
 
-function hasFieldChanged(localAccount: IAccount, key: keyof IAccount): boolean {
-  const storeAccount = accountsStore.value.accounts.find(a => a.id === localAccount.id);
-  if (!storeAccount) return true;
-
-  return localAccount[key] !== storeAccount[key];
-}
-
-const onAccountFieldChange = (account: IAccount, key: keyof IAccount) => {
-  if (!hasFieldChanged(account, key)) return;
-
-  const labelInput = labelInputs[account.id] || '';
-  validateAccount(account, labelInput);
-
-  if (isAccountValid(account.id)) {
-    saveAccount(account);
-  }
-}
-
-const saveAccount = (account: IAccount) => {
-  accountsStore.value.updateAccount({ ...account });
-  useLocalStorage().set('accounts', accountsStore.value.accounts);
-
-  ElNotification({
-    title: 'Запись успешно обновлена!',
-    message: `Запись №${account.id} успешно обновлена!`,
-    position: 'bottom-right',
-    type: 'success'
-  })
-}
-
-const onAccountRemove = (accountId: number) => {
-  accountsStore.value.removeAccount(accountId);
-
-  useLocalStorage<IAccount[]>().set('accounts', accountsStore.value.accounts);
-
-  ElNotification({
-    title: 'Запись успешно стерта!',
-    message: `Запись №${accountId} успешно стерта!`,
-    position: 'bottom-right',
-    type: 'success'
-  })
+const parseLabelToString = (input: string): ILabel[] => {
+  return input
+      .split(';')
+      .map(label => label.trim())
+      .filter(label => label.length > 0)
+      .map(text => ({text}));
 }
 </script>
 
