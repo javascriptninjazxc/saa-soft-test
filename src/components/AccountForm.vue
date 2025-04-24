@@ -81,17 +81,20 @@
 import {useAccountStore} from "../store/account/account.store.ts";
 import {computed, nextTick, onMounted, reactive, ref, toRaw, watch} from "vue";
 import {Icon} from "@iconify/vue";
-import {AccountTypes, type IAccount, type ILabel} from "../store/account/account.types.ts";
+import {AccountTypes, type IAccount} from "../store/account/account.types.ts";
 import cloneDeep from 'lodash.clonedeep';
 import {useLocalStorage} from "../composables/local-storage.composable.ts";
 import {ElNotification} from 'element-plus'
 import AccountFormHeader from "./AccountFormHeader.vue";
+import {useAccountValidation} from "../composables/account-validation.composable.ts";
+import {parseLabelToString} from "../utils/parse.ts";
 
-type ErrorsType = {
-  login?: string;
-  password?: string;
-  label?: string;
-}
+const {
+  errors,
+  validateAccount,
+  isAccountValid,
+  hasFieldChanged,
+} = useAccountValidation();
 
 const accountsStore = computed(() => {
   return useAccountStore();
@@ -99,24 +102,6 @@ const accountsStore = computed(() => {
 
 const localAccounts = ref<IAccount[]>([]);
 const labelInputs = reactive<Record<string, string>>({});
-
-onMounted(() => {
-  accountsStore.value.loadAccountsFromStorage();
-})
-
-watch(
-    () => accountsStore.value.accounts,
-    (newAccounts) => {
-      localAccounts.value = cloneDeep(toRaw(newAccounts));
-
-      for (const acc of newAccounts) {
-        labelInputs[acc.id] = acc.labels?.map(l => l.text).join('; ') || '';
-      }
-    },
-    { immediate: true, deep: true }
-);
-
-const errors = reactive<Record<string, ErrorsType>>({});
 
 const onAccountFieldChange = (account: IAccount, key: keyof IAccount) => {
   if (!hasFieldChanged(account, key)) return;
@@ -180,66 +165,21 @@ const onLabelBlur = (event: Event, account: IAccount) => {
   }
 };
 
-const hasFieldChanged = (localAccount: IAccount, key: keyof IAccount): boolean => {
-  const storeAccount = accountsStore.value.accounts.find(a => a.id === localAccount.id);
-  if (!storeAccount) return true;
+onMounted(() => {
+  accountsStore.value.loadAccountsFromStorage();
+})
 
-  // Если элемент empty - тогда сообщяем, чтобы валидация с ошибками появилась;
-  const isEmpty = localAccount[key] === '' || localAccount[key]?.toString().length === 0;
+watch(
+    () => accountsStore.value.accounts,
+    (newAccounts) => {
+      localAccounts.value = cloneDeep(toRaw(newAccounts));
 
-  if(isEmpty) return true;
-
-  return localAccount[key] !== storeAccount[key];
-}
-
-const validateAccount = (account: IAccount, labelInput: string): void => {
-  if (!errors[account.id]) {
-    errors[account.id] = {}
-  }
-
-  const accErrors = errors[account.id];
-
-  if (!account.login?.trim()) {
-    accErrors.login = 'Логин обязателен';
-  } else if (account.login.length > 100) {
-    accErrors.login = 'Макс. 100 символов';
-  } else {
-    delete accErrors.login;
-  }
-
-  if (account.type === AccountTypes.Local) {
-    if (!account.password?.trim()) {
-      accErrors.password = 'Пароль обязателен';
-    } else if (account.password.length > 100) {
-      accErrors.password = 'Макс. 100 символов';
-    } else {
-      delete accErrors.password;
-    }
-  } else {
-    delete accErrors.password;
-  }
-
-  if (labelInput && labelInput.length > 50) {
-    accErrors.label = 'Макс. 50 символов';
-  } else {
-    delete accErrors.label;
-  }
-
-  errors[account.id] = accErrors;
-}
-
-const isAccountValid = (accountId: number): boolean => {
-  const accErrors = errors[accountId];
-  return !accErrors || Object.keys(accErrors).length === 0;
-}
-
-const parseLabelToString = (input: string): ILabel[] => {
-  return input
-      .split(';')
-      .map(label => label.trim())
-      .filter(label => label.length > 0)
-      .map(text => ({text}));
-}
+      for (const acc of newAccounts) {
+        labelInputs[acc.id] = acc.labels?.map(l => l.text).join('; ') || '';
+      }
+    },
+    { immediate: true, deep: true }
+);
 </script>
 
 <style lang="scss">

@@ -1,5 +1,5 @@
 import {computed, reactive} from "vue";
-import {AccountTypes, type IAccount, type ILabel} from "../store/account/account.types.ts";
+import {AccountTypes, type IAccount} from "../store/account/account.types.ts";
 import {useAccountStore} from "../store/account/account.store.ts";
 
 export type ErrorsType = {
@@ -67,18 +67,9 @@ const hasFieldChanged = (localAccount: IAccount, key: keyof IAccount): boolean =
     return localAccount[key] !== storeAccount[key];
 }
 
-const parseLabelToString = (input: string): ILabel[] => {
-    return input
-        .split(';')
-        .map(label => label.trim())
-        .filter(label => label.length > 0)
-        .map(text => ({text}));
-}
-
 export const useAccountValidation = () => ({
     errors,
     validateAccount,
     isAccountValid,
-    hasFieldChanged,
-    parseLabelToString
+    hasFieldChanged
 })
