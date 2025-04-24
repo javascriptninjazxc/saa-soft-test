@@ -1,8 +1,10 @@
-# Vue 3 + TypeScript + Vite + Element Plus + Lodash CloneDeep
+# Vite + Vue 3 + TypeScript + Element Plus
 
-# Lodash Clone Deep
-Использую чтобы не потерять Date, Map, undefined. 
-Я понимаю, что в тестовом таких полей нет, но опять же лучше использовать lodash CD;
+```bash
+npm install
+npm run dev
+```
 
-# Account Form
-Здесь кратко описать, что и как. !! TODO
+<h3>
+После проверки прошу дать обратную связь с недочетами которые заметите :)
+</h3>
