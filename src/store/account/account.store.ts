@@ -1,6 +1,6 @@
 import {defineStore} from "pinia";
-import type {IAccount} from "./account.types.ts";
-import {useLocalStorage} from "../../composables/localstorage.composable.ts";
+import {AccountTypes, type IAccount} from "./account.types.ts";
+import {useLocalStorage} from "../../composables/local-storage.composable.ts";
 
 interface State {
     accounts: IAccount[];
@@ -26,6 +26,15 @@ export const useAccountStore = defineStore('accounts', {
             }
 
             this.accounts = localStorageAccounts;
+        },
+        addAccount() {
+            this.accounts.push({
+                id: Math.floor(Math.random() * 1_000_000_000), // Так лучше не делать, но решил оставить раз это тестовое)
+                type: AccountTypes.Local,
+                labels: [],
+                login: '',
+                password: null,
+            })
         },
         removeAccount(accountId: number) {
             this.accounts = this.accounts.filter(acc => acc.id !== accountId);

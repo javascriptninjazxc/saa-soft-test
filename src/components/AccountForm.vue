@@ -1,20 +1,12 @@
 <template>
   <div class="account-form">
-    <div class="account-form-header">
-        <h2 class="account-form-header__title">
-          Учетные записи
-        </h2>
-
-        <button class="account-form-header__btn">
-          +
-        </button>
-      </div>
+    <AccountFormHeader @on-add-account="onCreateAccount" />
 
     <el-alert
           title="Для указания нескольких меток для одной пары логин/пароль используйте разделитель ;"
           type="info"
           show-icon
-          class="mb-4"
+          class="account-form__alert"
       />
 
     <el-table :data="localAccounts" style="width: 100%">
@@ -87,12 +79,13 @@
 
 <script setup lang="ts">
 import {useAccountStore} from "../store/account/account.store.ts";
-import {computed, onMounted, reactive, ref, toRaw, watch} from "vue";
+import {computed, nextTick, onMounted, reactive, ref, toRaw, watch} from "vue";
 import {Icon} from "@iconify/vue";
 import {AccountTypes, type IAccount, type ILabel} from "../store/account/account.types.ts";
 import cloneDeep from 'lodash.clonedeep';
-import {useLocalStorage} from "../composables/localstorage.composable.ts";
+import {useLocalStorage} from "../composables/local-storage.composable.ts";
 import {ElNotification} from 'element-plus'
+import AccountFormHeader from "./AccountFormHeader.vue";
 
 type ErrorsType = {
   login?: string;
@@ -105,6 +98,7 @@ const accountsStore = computed(() => {
 })
 
 const localAccounts = ref<IAccount[]>([]);
+const labelInputs = reactive<Record<string, string>>({});
 
 onMounted(() => {
   accountsStore.value.loadAccountsFromStorage();
@@ -122,8 +116,6 @@ watch(
     { immediate: true, deep: true }
 );
 
-const labelInputs = reactive<Record<string, string>>({});
-
 const errors = reactive<Record<string, ErrorsType>>({});
 
 const onAccountFieldChange = (account: IAccount, key: keyof IAccount) => {
@@ -135,6 +127,11 @@ const onAccountFieldChange = (account: IAccount, key: keyof IAccount) => {
   if (isAccountValid(account.id)) {
     saveAccount(account);
   }
+}
+
+const onCreateAccount = async () => {
+  accountsStore.value.addAccount();
+  await nextTick();
 }
 
 const onAccountRemove = (accountId: number) => {
@@ -166,19 +163,41 @@ const onLabelBlur = (event: Event, account: IAccount) => {
   const input = event.target as HTMLInputElement;
   const value = input.value.trim();
 
+  const storeAccount = accountsStore.value.accounts.find(storeAcc => storeAcc.id === account.id);
+
+  if(!storeAccount) return;
+
   account.labels = parseLabelToString(value);
-  onAccountFieldChange(account, 'labels');
+
+  const labelsEqual = account.labels.every(l =>
+      storeAccount.labels.some(sl => sl.text === l.text)
+  );
+
+  if(labelsEqual) return;
+
+  if (isAccountValid(account.id)) {
+    saveAccount(account);
+  }
 };
 
 const hasFieldChanged = (localAccount: IAccount, key: keyof IAccount): boolean => {
   const storeAccount = accountsStore.value.accounts.find(a => a.id === localAccount.id);
   if (!storeAccount) return true;
 
+  // Если элемент empty - тогда сообщяем, чтобы валидация с ошибками появилась;
+  const isEmpty = localAccount[key] === '' || localAccount[key]?.toString().length === 0;
+
+  if(isEmpty) return true;
+
   return localAccount[key] !== storeAccount[key];
 }
 
 const validateAccount = (account: IAccount, labelInput: string): void => {
-  const accErrors = errors[account.id] || {};
+  if (!errors[account.id]) {
+    errors[account.id] = {}
+  }
+
+  const accErrors = errors[account.id];
 
   if (!account.login?.trim()) {
     accErrors.login = 'Логин обязателен';
@@ -224,6 +243,13 @@ const parseLabelToString = (input: string): ILabel[] => {
 </script>
 
 <style lang="scss">
+.account-form {
+  width: 90%;
+  margin: 50px auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
 .is-error .el-input__wrapper {
   border: 1px solid #f56c6c;
 }
